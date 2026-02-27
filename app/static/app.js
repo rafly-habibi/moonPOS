@@ -1,8 +1,21 @@
 const state = {
   products: [],
   cart: new Map(),
-  refreshInFlight: false,
+  syncInFlight: false,
   toastTimer: null,
+};
+
+const TAB_TITLES = {
+  checkout: "Kasir",
+  inventory: "Inventori",
+  bookkeeping: "Pembukuan",
+  analytics: "Analitik",
+};
+
+const MOVEMENT_LABELS = {
+  sale: "Penjualan",
+  restock: "Restock",
+  adjustment: "Koreksi",
 };
 
 const currencyFmt = new Intl.NumberFormat("id-ID", {
@@ -26,13 +39,9 @@ function asCurrency(value) {
 }
 
 function asDate(value) {
-  if (!value) {
-    return "-";
-  }
+  if (!value) return "-";
   const dt = new Date(value);
-  if (Number.isNaN(dt.getTime())) {
-    return value;
-  }
+  if (Number.isNaN(dt.getTime())) return value;
   return dateFmt.format(dt);
 }
 
@@ -50,13 +59,8 @@ function showToast(message, type = "success") {
   el.textContent = message;
   el.className = `toast ${type}`;
   el.classList.remove("hidden");
-
-  if (state.toastTimer) {
-    clearTimeout(state.toastTimer);
-  }
-  state.toastTimer = setTimeout(() => {
-    el.classList.add("hidden");
-  }, 3200);
+  if (state.toastTimer) clearTimeout(state.toastTimer);
+  state.toastTimer = setTimeout(() => el.classList.add("hidden"), 3200);
 }
 
 async function api(path, options = {}) {
@@ -73,15 +77,13 @@ async function api(path, options = {}) {
     try {
       const payload = await response.json();
       detail = payload.detail || JSON.stringify(payload);
-    } catch (_err) {
+    } catch {
       const raw = await response.text();
       if (raw) detail = raw;
     }
     throw new Error(detail);
   }
-  if (response.status === 204) {
-    return null;
-  }
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -90,7 +92,7 @@ function setSyncStatus(text) {
 }
 
 function getProductById(productId) {
-  return state.products.find((product) => product.id === productId) || null;
+  return state.products.find((p) => p.id === productId) || null;
 }
 
 function getCartSubtotal() {
@@ -129,12 +131,14 @@ function normalizeCartWithStock() {
   staleIds.forEach((id) => state.cart.delete(id));
 }
 
+// ── Render functions ──
+
 function renderProductCatalog() {
   const container = document.getElementById("productCatalog");
   const query = document.getElementById("productSearch").value.trim().toLowerCase();
 
-  const products = state.products.filter((product) => {
-    const haystack = `${product.name} ${product.sku} ${product.category || ""}`.toLowerCase();
+  const products = state.products.filter((p) => {
+    const haystack = `${p.name} ${p.sku} ${p.category || ""}`.toLowerCase();
     return haystack.includes(query);
   });
 
@@ -146,23 +150,24 @@ function renderProductCatalog() {
   container.innerHTML = products
     .map((product) => {
       const low = product.stock_qty <= product.min_stock;
+      const outOfStock = product.stock_qty <= 0;
       return `
         <article class="catalog-item">
           <div>
             <p class="catalog-title">${escapeHtml(product.name)}</p>
-            <p class="catalog-meta">${escapeHtml(product.sku)} | ${escapeHtml(product.category || "Tanpa kategori")}</p>
-            <p class="catalog-meta">Harga: ${asCurrency(product.sell_price)} | Stok: ${product.stock_qty} ${low ? "(Low)" : ""}</p>
+            <p class="catalog-meta">${escapeHtml(product.sku)} &middot; ${escapeHtml(product.category || "Tanpa kategori")}</p>
+            <p class="catalog-meta">
+              ${asCurrency(product.sell_price)} &nbsp;&bull;&nbsp;
+              Stok: ${product.stock_qty}${low && !outOfStock ? " <em>(Menipis)</em>" : ""}${outOfStock ? " <em>(Habis)</em>" : ""}
+            </p>
           </div>
           <div class="catalog-controls">
-            <input type="number" min="1" max="${product.stock_qty}" value="1" data-qty-input="${product.id}" ${
-              product.stock_qty <= 0 ? "disabled" : ""
-            } />
-            <button type="button" class="btn btn-secondary" data-add-product="${product.id}" ${
-              product.stock_qty <= 0 ? "disabled" : ""
-            }>Tambah Keranjang</button>
+            <input type="number" min="1" max="${product.stock_qty}" value="1"
+              data-qty-input="${product.id}" ${outOfStock ? "disabled" : ""} />
+            <button type="button" class="btn btn-secondary"
+              data-add-product="${product.id}" ${outOfStock ? "disabled" : ""}>+ Keranjang</button>
           </div>
-        </article>
-      `;
+        </article>`;
     })
     .join("");
 }
@@ -170,7 +175,7 @@ function renderProductCatalog() {
 function renderCart() {
   const body = document.getElementById("cartTableBody");
   if (!state.cart.size) {
-    body.innerHTML = "<tr><td colspan='4'>Keranjang masih kosong.</td></tr>";
+    body.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted)'>Keranjang masih kosong.</td></tr>";
     refreshCartTotalUI();
     return;
   }
@@ -184,14 +189,14 @@ function renderCart() {
       <tr>
         <td>${escapeHtml(product.name)}</td>
         <td>
-          <input type="number" min="1" max="${product.stock_qty}" value="${qty}" data-cart-qty="${productId}" />
+          <input type="number" min="1" max="${product.stock_qty}" value="${qty}"
+            data-cart-qty="${productId}" style="width:64px" />
         </td>
-        <td>${asCurrency(subtotal)}</td>
+        <td data-subtotal="${productId}">${asCurrency(subtotal)}</td>
         <td>
           <button type="button" class="btn btn-danger" data-remove-cart="${productId}">Hapus</button>
         </td>
-      </tr>
-    `);
+      </tr>`);
   }
 
   body.innerHTML = rows.join("");
@@ -201,10 +206,9 @@ function renderCart() {
 function renderRecentOrders(orders) {
   const body = document.getElementById("recentOrdersBody");
   if (!orders.length) {
-    body.innerHTML = "<tr><td colspan='4'>Belum ada order.</td></tr>";
+    body.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted)'>Belum ada order.</td></tr>";
     return;
   }
-
   body.innerHTML = orders
     .map(
       (order) => `
@@ -213,8 +217,7 @@ function renderRecentOrders(orders) {
         <td>${asDate(order.created_at)}</td>
         <td>${escapeHtml(order.payment_method)}</td>
         <td>${asCurrency(order.total)}</td>
-      </tr>
-    `
+      </tr>`
     )
     .join("");
 }
@@ -222,10 +225,9 @@ function renderRecentOrders(orders) {
 function renderInventoryTable() {
   const body = document.getElementById("inventoryTableBody");
   if (!state.products.length) {
-    body.innerHTML = "<tr><td colspan='7'>Tidak ada data produk.</td></tr>";
+    body.innerHTML = "<tr><td colspan='7' style='color:var(--text-muted)'>Tidak ada data produk.</td></tr>";
     return;
   }
-
   body.innerHTML = state.products
     .map((product) => {
       const low = product.stock_qty <= product.min_stock;
@@ -237,9 +239,8 @@ function renderInventoryTable() {
         <td>${asCurrency(product.sell_price)}</td>
         <td>${product.stock_qty}</td>
         <td>${product.min_stock}</td>
-        <td><span class="chip ${low ? "low" : "ok"}">${low ? "Low stock" : "Aman"}</span></td>
-      </tr>
-    `;
+        <td><span class="chip ${low ? "low" : "ok"}">${low ? "Menipis" : "Aman"}</span></td>
+      </tr>`;
     })
     .join("");
 }
@@ -247,10 +248,7 @@ function renderInventoryTable() {
 function populateAdjustProductSelect() {
   const select = document.getElementById("adjustProduct");
   select.innerHTML = state.products
-    .map(
-      (product) =>
-        `<option value="${product.id}">${escapeHtml(product.name)} (${escapeHtml(product.sku)})</option>`
-    )
+    .map((p) => `<option value="${p.id}">${escapeHtml(p.name)} (${escapeHtml(p.sku)})</option>`)
     .join("");
 }
 
@@ -263,34 +261,36 @@ function renderInventoryCounters() {
 function renderMovements(movements) {
   const body = document.getElementById("movementTableBody");
   if (!movements.length) {
-    body.innerHTML = "<tr><td colspan='7'>Belum ada movement.</td></tr>";
+    body.innerHTML = "<tr><td colspan='7' style='color:var(--text-muted)'>Belum ada pergerakan stok.</td></tr>";
     return;
   }
-
   body.innerHTML = movements
-    .map(
-      (item) => `
+    .map((item) => {
+      // FIX: tampilkan nama produk, bukan ID mentah
+      const product = getProductById(item.product_id);
+      const productName = product ? escapeHtml(product.name) : `#${item.product_id}`;
+      const typeLabel = MOVEMENT_LABELS[item.movement_type] || escapeHtml(item.movement_type);
+      const changeStr = item.quantity_change > 0 ? `+${item.quantity_change}` : String(item.quantity_change);
+      return `
       <tr>
         <td>${asDate(item.created_at)}</td>
-        <td>${item.product_id}</td>
-        <td>${escapeHtml(item.movement_type)}</td>
-        <td>${item.quantity_change > 0 ? "+" : ""}${item.quantity_change}</td>
+        <td>${productName}</td>
+        <td>${typeLabel}</td>
+        <td>${changeStr}</td>
         <td>${item.before_qty}</td>
         <td>${item.after_qty}</td>
         <td>${escapeHtml(item.reason || "-")}</td>
-      </tr>
-    `
-    )
+      </tr>`;
+    })
     .join("");
 }
 
 function renderTrialBalance(rows) {
   const body = document.getElementById("trialBalanceBody");
   if (!rows.length) {
-    body.innerHTML = "<tr><td colspan='4'>Belum ada jurnal.</td></tr>";
+    body.innerHTML = "<tr><td colspan='4' style='color:var(--text-muted)'>Belum ada jurnal.</td></tr>";
     return;
   }
-
   body.innerHTML = rows
     .map(
       (row) => `
@@ -299,8 +299,7 @@ function renderTrialBalance(rows) {
         <td>${asCurrency(row.debit)}</td>
         <td>${asCurrency(row.credit)}</td>
         <td>${asCurrency(row.balance)}</td>
-      </tr>
-    `
+      </tr>`
     )
     .join("");
 }
@@ -308,10 +307,9 @@ function renderTrialBalance(rows) {
 function renderLedger(entries) {
   const body = document.getElementById("ledgerBody");
   if (!entries.length) {
-    body.innerHTML = "<tr><td colspan='6'>Belum ada ledger entry.</td></tr>";
+    body.innerHTML = "<tr><td colspan='6' style='color:var(--text-muted)'>Belum ada jurnal.</td></tr>";
     return;
   }
-
   body.innerHTML = entries
     .map(
       (entry) => `
@@ -322,8 +320,7 @@ function renderLedger(entries) {
         <td>${escapeHtml(entry.direction)}</td>
         <td>${asCurrency(entry.amount)}</td>
         <td>${escapeHtml(entry.note || "-")}</td>
-      </tr>
-    `
+      </tr>`
     )
     .join("");
 }
@@ -333,16 +330,12 @@ function renderAnalytics(sales, topProducts, valuation) {
   document.getElementById("kpiProfit").textContent = asCurrency(sales.gross_profit);
   document.getElementById("kpiOrderCount").textContent = String(sales.order_count);
   document.getElementById("kpiAov").textContent = asCurrency(sales.avg_order_value);
-  document.getElementById("kpiInventoryCost").textContent = asCurrency(
-    valuation.inventory_cost_value
-  );
-  document.getElementById("kpiPotentialMargin").textContent = asCurrency(
-    valuation.potential_margin
-  );
+  document.getElementById("kpiInventoryCost").textContent = asCurrency(valuation.inventory_cost_value);
+  document.getElementById("kpiPotentialMargin").textContent = asCurrency(valuation.potential_margin);
 
   const body = document.getElementById("topProductsBody");
   if (!topProducts.length) {
-    body.innerHTML = "<tr><td colspan='3'>Belum ada data penjualan produk.</td></tr>";
+    body.innerHTML = "<tr><td colspan='3' style='color:var(--text-muted)'>Belum ada data penjualan.</td></tr>";
     return;
   }
   body.innerHTML = topProducts
@@ -352,11 +345,12 @@ function renderAnalytics(sales, topProducts, valuation) {
         <td>${escapeHtml(item.product_name)}</td>
         <td>${item.qty_sold}</td>
         <td>${asCurrency(item.revenue)}</td>
-      </tr>
-    `
+      </tr>`
     )
     .join("");
 }
+
+// ── Data loaders ──
 
 async function loadProducts() {
   const products = await api("/products");
@@ -380,27 +374,51 @@ async function loadRecentOrders() {
 }
 
 async function loadBookkeeping() {
+  const startDate = document.getElementById("bkStartDate").value;
+  const endDate = document.getElementById("bkEndDate").value;
+
+  const params = new URLSearchParams();
+  if (startDate) params.set("start_date", startDate);
+  if (endDate) params.set("end_date", endDate);
+
+  const ledgerParams = new URLSearchParams(params);
+  ledgerParams.set("limit", "200");
+
   const [trialBalance, ledger] = await Promise.all([
-    api("/bookkeeping/trial-balance"),
-    api("/bookkeeping/ledger?limit=120"),
+    api(`/bookkeeping/trial-balance?${params}`),
+    api(`/bookkeeping/ledger?${ledgerParams}`),
   ]);
   renderTrialBalance(trialBalance);
   renderLedger(ledger);
 }
 
 async function loadAnalytics() {
+  const startDate = document.getElementById("anStartDate").value;
+  const endDate = document.getElementById("anEndDate").value;
+
+  const salesParams = new URLSearchParams();
+  const topParams = new URLSearchParams({ limit: "10" });
+  if (startDate) {
+    salesParams.set("start_date", startDate);
+    topParams.set("start_date", startDate);
+  }
+  if (endDate) {
+    salesParams.set("end_date", endDate);
+    topParams.set("end_date", endDate);
+  }
+
   const [sales, topProducts, valuation] = await Promise.all([
-    api("/analytics/sales-summary"),
-    api("/analytics/top-products?limit=10"),
+    api(`/analytics/sales-summary?${salesParams}`),
+    api(`/analytics/top-products?${topParams}`),
     api("/analytics/stock-valuation"),
   ]);
   renderAnalytics(sales, topProducts, valuation);
 }
 
 async function refreshAllData({ withToast = false } = {}) {
-  if (state.refreshInFlight) return;
-  state.refreshInFlight = true;
-  setSyncStatus("Sinkronisasi data...");
+  if (state.syncInFlight) return;
+  state.syncInFlight = true;
+  setSyncStatus("Sinkronisasi...");
   try {
     await Promise.all([
       loadProducts(),
@@ -410,23 +428,36 @@ async function refreshAllData({ withToast = false } = {}) {
       loadAnalytics(),
     ]);
     setSyncStatus(`Sinkron: ${asDate(new Date().toISOString())}`);
-    if (withToast) showToast("Data berhasil di-refresh.", "success");
+    if (withToast) showToast("Data berhasil disinkronkan.", "success");
   } catch (error) {
     setSyncStatus("Sync gagal");
     showToast(error.message, "error");
   } finally {
-    state.refreshInFlight = false;
+    state.syncInFlight = false;
   }
 }
 
+// ── Tab navigation ──
+
 function setActiveTab(tabName) {
   document.querySelectorAll(".tab-btn").forEach((btn) => {
-    const active = btn.dataset.tab === tabName;
-    btn.classList.toggle("is-active", active);
+    btn.classList.toggle("is-active", btn.dataset.tab === tabName);
   });
   document.querySelectorAll(".tab-panel").forEach((panel) => {
     panel.classList.toggle("is-active", panel.id === `tab-${tabName}`);
   });
+
+  // Update topbar title dynamically
+  document.getElementById("topbarTitle").textContent = TAB_TITLES[tabName] || "Dashboard";
+
+  // Lazy load: only fetch data relevant to the active tab
+  const loaders = {
+    checkout: () => Promise.all([loadProducts(), loadRecentOrders()]),
+    inventory: () => Promise.all([loadProducts(), loadMovements()]),
+    bookkeeping: () => loadBookkeeping(),
+    analytics: () => loadAnalytics(),
+  };
+  loaders[tabName]?.().catch((err) => showToast(err.message, "error"));
 }
 
 function bindTabNavigation() {
@@ -435,8 +466,11 @@ function bindTabNavigation() {
   });
 }
 
+// ── Catalog actions ──
+
 function bindCatalogActions() {
   const catalog = document.getElementById("productCatalog");
+
   catalog.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -468,6 +502,8 @@ function bindCatalogActions() {
   document.getElementById("productSearch").addEventListener("input", renderProductCatalog);
 }
 
+// ── Cart actions ──
+
 function bindCartActions() {
   document.getElementById("clearCartBtn").addEventListener("click", () => {
     state.cart.clear();
@@ -476,6 +512,7 @@ function bindCartActions() {
   });
 
   const cartBody = document.getElementById("cartTableBody");
+
   cartBody.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLElement)) return;
@@ -494,12 +531,18 @@ function bindCartActions() {
     const productId = Number(cartIdRaw);
     const product = getProductById(productId);
     if (!product) return;
+
     let qty = Math.floor(toNumber(target.value));
     if (qty < 1) qty = 1;
     if (qty > product.stock_qty) qty = product.stock_qty;
-
     target.value = String(qty);
     state.cart.set(productId, qty);
+
+    // FIX: update subtotal cell in-place instead of only refreshing total
+    const subtotalCell = cartBody.querySelector(`td[data-subtotal="${productId}"]`);
+    if (subtotalCell) {
+      subtotalCell.textContent = asCurrency(toNumber(product.sell_price) * qty);
+    }
     refreshCartTotalUI();
   });
 
@@ -507,6 +550,8 @@ function bindCartActions() {
     document.getElementById(id).addEventListener("input", refreshCartTotalUI);
   });
 }
+
+// ── Checkout form ──
 
 function bindCheckoutForm() {
   const form = document.getElementById("checkoutForm");
@@ -518,6 +563,11 @@ function bindCheckoutForm() {
       return;
     }
 
+    const btn = form.querySelector('[type="submit"]');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Memproses...";
+
     const payload = {
       items: [...state.cart.entries()].map(([product_id, quantity]) => ({ product_id, quantity })),
       discount: toNumber(document.getElementById("discountInput").value),
@@ -526,35 +576,48 @@ function bindCheckoutForm() {
     };
 
     try {
-      const result = await api("/checkout", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const result = await api("/checkout", { method: "POST", body: JSON.stringify(payload) });
+
       const output = document.getElementById("checkoutResult");
       output.classList.remove("hidden");
       output.innerHTML = `
         <p><strong>Checkout sukses</strong></p>
         <p>No Order: <span class="mono">${escapeHtml(result.order_number)}</span></p>
-        <p>Total: ${asCurrency(result.total)} | COGS: ${asCurrency(result.cogs)} | Gross Profit: ${asCurrency(result.gross_profit)}</p>
-      `;
+        <p>Total: ${asCurrency(result.total)} &nbsp;|&nbsp; COGS: ${asCurrency(result.cogs)} &nbsp;|&nbsp; Gross Profit: ${asCurrency(result.gross_profit)}</p>`;
+
+      // FIX: scroll to result so user sees it
+      output.scrollIntoView({ behavior: "smooth", block: "nearest" });
 
       state.cart.clear();
       form.reset();
       document.getElementById("discountInput").value = "0";
       document.getElementById("taxInput").value = "0";
       refreshCartTotalUI();
-      await refreshAllData();
+
+      // Only reload what's needed for checkout tab
+      await Promise.all([loadProducts(), loadRecentOrders()]);
       showToast(`Order ${result.order_number} berhasil dibuat.`);
     } catch (error) {
       showToast(error.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 }
+
+// ── Product form ──
 
 function bindProductForm() {
   const form = document.getElementById("productForm");
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+
+    const btn = form.querySelector('[type="submit"]');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Menyimpan...";
+
     const formData = new FormData(form);
     const payload = {
       sku: String(formData.get("sku") || "").trim(),
@@ -571,41 +634,102 @@ function bindProductForm() {
       form.reset();
       form.stock_qty.value = "0";
       form.min_stock.value = "5";
-      await refreshAllData();
+      await loadProducts();
       showToast("Produk baru berhasil disimpan.");
     } catch (error) {
       showToast(error.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 }
+
+// ── Adjust form ──
 
 function bindAdjustForm() {
   const form = document.getElementById("adjustForm");
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+
     const payload = {
       product_id: Number(document.getElementById("adjustProduct").value),
       quantity_change: Math.floor(toNumber(document.getElementById("adjustQty").value)),
       reason: String(document.getElementById("adjustReason").value || "").trim() || null,
-      counterparty_account:
-        String(document.getElementById("adjustAccount").value || "").trim() || null,
+      counterparty_account: String(document.getElementById("adjustAccount").value || "").trim() || null,
     };
 
     if (!payload.product_id || !payload.quantity_change) {
-      showToast("Pilih produk dan isi quantity change (tidak boleh 0).", "error");
+      showToast("Pilih produk dan isi perubahan qty (tidak boleh 0).", "error");
       return;
     }
+
+    const btn = form.querySelector('[type="submit"]');
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Menyimpan...";
 
     try {
       await api("/inventory/adjust", { method: "POST", body: JSON.stringify(payload) });
       form.reset();
-      await refreshAllData();
-      showToast("Adjustment stok berhasil dicatat.");
+      await Promise.all([loadProducts(), loadMovements()]);
+      showToast("Penyesuaian stok berhasil dicatat.");
     } catch (error) {
       showToast(error.message, "error");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 }
+
+// ── Filter forms ──
+
+function bindBookkeepingFilter() {
+  document.getElementById("bookkeepingFilterForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await loadBookkeeping();
+      showToast("Filter diterapkan.", "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  });
+
+  document.getElementById("bkResetBtn").addEventListener("click", async () => {
+    document.getElementById("bkStartDate").value = "";
+    document.getElementById("bkEndDate").value = "";
+    try {
+      await loadBookkeeping();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  });
+}
+
+function bindAnalyticsFilter() {
+  document.getElementById("analyticsFilterForm").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      await loadAnalytics();
+      showToast("Filter diterapkan.", "success");
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  });
+
+  document.getElementById("anResetBtn").addEventListener("click", async () => {
+    document.getElementById("anStartDate").value = "";
+    document.getElementById("anEndDate").value = "";
+    try {
+      await loadAnalytics();
+    } catch (err) {
+      showToast(err.message, "error");
+    }
+  });
+}
+
+// ── Refresh button ──
 
 function bindRefreshButton() {
   document.getElementById("refreshAllBtn").addEventListener("click", () => {
@@ -613,16 +737,29 @@ function bindRefreshButton() {
   });
 }
 
-function bootstrap() {
+// ── Bootstrap ──
+
+async function bootstrap() {
   bindTabNavigation();
   bindCatalogActions();
   bindCartActions();
   bindCheckoutForm();
   bindProductForm();
   bindAdjustForm();
+  bindBookkeepingFilter();
+  bindAnalyticsFilter();
   bindRefreshButton();
   renderCart();
-  refreshAllData();
+
+  // Lazy: only load data for the default tab (checkout) on initial boot
+  setSyncStatus("Memuat...");
+  try {
+    await Promise.all([loadProducts(), loadRecentOrders()]);
+    setSyncStatus(`Sinkron: ${asDate(new Date().toISOString())}`);
+  } catch (err) {
+    setSyncStatus("Gagal memuat");
+    showToast(err.message, "error");
+  }
 }
 
 window.addEventListener("DOMContentLoaded", bootstrap);

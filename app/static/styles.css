@@ -17,7 +17,7 @@
   --danger: #b63737;
   --radius-lg: 14px;
   --radius-md: 10px;
-  --shadow: 0 14px 30px rgba(21, 52, 91, 0.08);
+  --shadow: 0 4px 16px rgba(21, 52, 91, 0.07);
 }
 
 * {
@@ -26,71 +26,51 @@
 
 body {
   margin: 0;
-  min-height: 100vh;
-  padding: 18px;
+  height: 100vh;
+  overflow: hidden;
   font-family: "Plus Jakarta Sans", sans-serif;
   color: var(--text-main);
-  background:
-    radial-gradient(circle at 12% 8%, rgba(61, 131, 238, 0.13), transparent 34%),
-    radial-gradient(circle at 92% 88%, rgba(25, 97, 187, 0.1), transparent 38%),
-    linear-gradient(180deg, var(--bg-main), var(--bg-soft));
+  background: var(--bg-main);
 }
 
-.bg-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-}
+/* ── App shell ── */
 
 .app-shell {
-  width: min(1680px, 100%);
-  margin: 0 auto;
+  width: 100%;
+  height: 100vh;
   display: grid;
-  grid-template-columns: 278px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 256px minmax(0, 1fr);
 }
 
+/* ── Sidebar ── */
+
 .sidebar {
-  position: sticky;
-  top: 18px;
-  align-self: start;
-  min-height: calc(100vh - 36px);
+  height: 100vh;
+  overflow-y: auto;
   display: grid;
   grid-template-rows: auto 1fr auto;
   gap: 16px;
-  padding: 18px 14px;
-  border: 1px solid var(--line);
-  border-radius: 18px;
+  padding: 20px 14px;
+  border-right: 1px solid var(--line);
   background: var(--surface);
-  box-shadow: var(--shadow);
-}
-
-.brand-kicker {
-  margin: 0;
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  font-weight: 700;
-  color: #4e86d3;
 }
 
 .brand h1 {
-  margin: 8px 0 0;
+  margin: 0 0 3px;
   font-family: "Sora", sans-serif;
-  font-size: clamp(26px, 3.1vw, 30px);
+  font-size: 22px;
   letter-spacing: -0.03em;
 }
 
 .brand-subtitle {
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--text-muted);
   font-size: 12px;
 }
 
 .tab-nav {
   display: grid;
-  gap: 7px;
+  gap: 3px;
   align-content: start;
 }
 
@@ -105,7 +85,7 @@ body {
   color: #40546f;
   background: transparent;
   cursor: pointer;
-  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .tab-btn:hover {
@@ -123,79 +103,85 @@ body {
 
 .sidebar-foot {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .status-pill {
-  padding: 9px 10px;
+  padding: 8px 10px;
   border: 1px solid #d3e1f7;
   border-radius: 10px;
   background: #f2f7ff;
   color: #46658a;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
 }
 
+/* ── Workspace ── */
+
 .workspace {
-  display: grid;
-  gap: 14px;
+  height: 100vh;
+  overflow-y: auto;
+  background: var(--bg-main);
 }
 
 .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(5px);
-}
-
-.topbar-kicker {
-  margin: 0;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  font-weight: 700;
-  color: #5a88cb;
+  padding: 13px 20px;
+  background: rgba(243, 247, 252, 0.94);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(8px);
 }
 
 .topbar h2 {
-  margin: 5px 0 0;
+  margin: 0;
   font-family: "Sora", sans-serif;
-  font-size: clamp(19px, 3vw, 25px);
+  font-size: 20px;
   letter-spacing: -0.02em;
 }
 
 .link-btn {
   text-decoration: none;
-  padding: 8px 12px;
+  padding: 7px 12px;
   border-radius: 9px;
   border: 1px solid var(--line-strong);
   color: var(--text-main);
   font-size: 12px;
   font-weight: 600;
   background: #fff;
+  transition: background 0.15s;
+}
+
+.link-btn:hover {
+  background: var(--surface-alt);
 }
 
 .layout {
+  padding: 16px 20px;
   display: grid;
   gap: 14px;
+  align-content: start;
 }
+
+/* ── Tabs ── */
 
 .tab-panel {
   display: none;
   gap: 14px;
-  animation: fade-up 0.24s ease;
+  animation: fade-up 0.2s ease;
 }
 
 .tab-panel.is-active {
   display: grid;
 }
+
+/* ── Grid layouts ── */
 
 .panel-grid {
   display: grid;
@@ -206,6 +192,8 @@ body {
 .panel-grid-checkout {
   grid-template-columns: 1.16fr 1fr;
 }
+
+/* ── Cards ── */
 
 .panel-card {
   border: 1px solid var(--line);
@@ -226,9 +214,41 @@ body {
 
 .card-head h2 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   font-family: "Sora", sans-serif;
 }
+
+/* ── Filter bar ── */
+
+.filter-bar {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+}
+
+.filter-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.filter-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.filter-form input[type="date"] {
+  width: 150px;
+}
+
+/* ── Forms ── */
 
 .form-grid {
   margin-top: 12px;
@@ -269,12 +289,14 @@ select:focus {
   box-shadow: 0 0 0 3px rgba(52, 122, 219, 0.14);
 }
 
+/* ── Catalog ── */
+
 .catalog-list {
-  max-height: 450px;
+  max-height: 440px;
   overflow: auto;
   padding-right: 2px;
   display: grid;
-  gap: 9px;
+  gap: 8px;
 }
 
 .catalog-item {
@@ -300,9 +322,11 @@ select:focus {
 
 .catalog-controls {
   display: grid;
-  grid-template-columns: 108px 1fr;
+  grid-template-columns: 100px 1fr;
   gap: 8px;
 }
+
+/* ── Checkout summary ── */
 
 .checkout-summary {
   border: 1px solid #d5e4f8;
@@ -315,6 +339,8 @@ select:focus {
   margin: 0;
   font-weight: 600;
 }
+
+/* ── Result box ── */
 
 .result-box {
   margin-top: 12px;
@@ -329,6 +355,8 @@ select:focus {
   margin: 5px 0;
 }
 
+/* ── Buttons ── */
+
 .btn {
   border: 1px solid transparent;
   border-radius: 9px;
@@ -337,10 +365,16 @@ select:focus {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 0.16s ease, opacity 0.16s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 
-.btn:hover {
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.btn:not(:disabled):hover {
   transform: translateY(-1px);
 }
 
@@ -365,6 +399,8 @@ select:focus {
   background: #fff4f4;
   border-color: #f2cccc;
 }
+
+/* ── Tables ── */
 
 .table-wrap {
   width: 100%;
@@ -407,6 +443,8 @@ tbody tr:hover td {
   font-family: "Sora", sans-serif;
 }
 
+/* ── Chips ── */
+
 .chip {
   display: inline-flex;
   align-items: center;
@@ -426,14 +464,16 @@ tbody tr:hover td {
   background: #eaf9f2;
 }
 
+/* ── KPI cards ── */
+
 .kpi-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(2, minmax(210px, 1fr));
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
 }
 
 .analytics-kpi {
-  grid-template-columns: repeat(3, minmax(168px, 1fr));
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
 }
 
 .kpi-card {
@@ -459,8 +499,10 @@ tbody tr:hover td {
 .kpi-card h3 {
   margin: 8px 0 0;
   font-family: "Sora", sans-serif;
-  font-size: clamp(20px, 2.6vw, 25px);
+  font-size: clamp(18px, 2.4vw, 24px);
 }
+
+/* ── Toast ── */
 
 .toast {
   position: fixed;
@@ -488,6 +530,8 @@ tbody tr:hover td {
   display: none !important;
 }
 
+/* ── Animations ── */
+
 @keyframes fade-up {
   from {
     opacity: 0;
@@ -499,15 +543,28 @@ tbody tr:hover td {
   }
 }
 
+/* ── Responsive ── */
+
 @media (max-width: 1180px) {
+  body {
+    height: auto;
+    overflow: auto;
+  }
+
   .app-shell {
+    height: auto;
     grid-template-columns: 1fr;
   }
 
   .sidebar {
-    position: static;
-    min-height: auto;
-    grid-template-rows: auto auto auto;
+    height: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .workspace {
+    height: auto;
+    overflow-y: visible;
   }
 
   .tab-nav {
@@ -532,7 +589,7 @@ tbody tr:hover td {
 }
 
 @media (max-width: 640px) {
-  body {
+  .layout {
     padding: 12px;
   }
 
@@ -551,5 +608,13 @@ tbody tr:hover td {
 
   .catalog-controls {
     grid-template-columns: 1fr;
+  }
+
+  .filter-form {
+    flex-direction: column;
+  }
+
+  .filter-form input[type="date"] {
+    width: 100%;
   }
 }

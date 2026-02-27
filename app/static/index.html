@@ -3,48 +3,45 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>moonPOS Dashboard</title>
+    <title>moonPOS</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <div class="bg-layer"></div>
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <p class="brand-kicker">Enterprise Retail Suite</p>
           <h1>moonPOS</h1>
-          <p class="brand-subtitle">Operational Command Center</p>
+          <p class="brand-subtitle">Point of Sale</p>
         </div>
 
         <nav class="tab-nav">
-          <button class="tab-btn is-active" data-tab="checkout" type="button">Checkout Ops</button>
-          <button class="tab-btn" data-tab="inventory" type="button">Inventory Control</button>
-          <button class="tab-btn" data-tab="bookkeeping" type="button">Bookkeeping</button>
-          <button class="tab-btn" data-tab="analytics" type="button">Business Analytics</button>
+          <button class="tab-btn is-active" data-tab="checkout" type="button">Kasir</button>
+          <button class="tab-btn" data-tab="inventory" type="button">Inventori</button>
+          <button class="tab-btn" data-tab="bookkeeping" type="button">Pembukuan</button>
+          <button class="tab-btn" data-tab="analytics" type="button">Analitik</button>
         </nav>
 
         <div class="sidebar-foot">
-          <span id="syncStatus" class="status-pill">Belum sinkron</span>
-          <button id="refreshAllBtn" class="btn btn-secondary" type="button">Sync Data</button>
+          <span id="syncStatus" class="status-pill">Memuat...</span>
+          <button id="refreshAllBtn" class="btn btn-secondary" type="button">Sinkron</button>
         </div>
       </aside>
 
       <section class="workspace">
         <header class="topbar">
-          <div>
-            <p class="topbar-kicker">Live Workspace</p>
-            <h2>Dashboard Operasional</h2>
-          </div>
-          <a class="link-btn" href="/docs" target="_blank" rel="noreferrer">Open API Docs</a>
+          <h2 id="topbarTitle">Kasir</h2>
+          <a class="link-btn" href="/docs" target="_blank" rel="noreferrer">API Docs</a>
         </header>
 
         <main class="layout">
+
+          <!-- ── Tab Kasir ── -->
           <section id="tab-checkout" class="tab-panel is-active">
             <div class="panel-grid panel-grid-checkout">
               <article class="panel-card">
                 <div class="card-head">
-                  <h2>Catalog Produk</h2>
-                  <input id="productSearch" type="search" placeholder="Cari produk..." />
+                  <h2>Katalog Produk</h2>
+                  <input id="productSearch" type="search" placeholder="Cari produk..." style="width:180px" />
                 </div>
                 <div id="productCatalog" class="catalog-list"></div>
               </article>
@@ -70,7 +67,7 @@
 
                 <form id="checkoutForm" class="form-grid">
                   <label>
-                    Discount
+                    Diskon
                     <input id="discountInput" type="number" min="0" value="0" />
                   </label>
                   <label>
@@ -78,12 +75,12 @@
                     <input id="taxInput" type="number" min="0" value="0" />
                   </label>
                   <label>
-                    Payment
+                    Pembayaran
                     <select id="paymentMethodInput">
                       <option value="cash">Cash</option>
                       <option value="transfer">Transfer</option>
                       <option value="qris">QRIS</option>
-                      <option value="credit">Credit</option>
+                      <option value="credit">Kredit</option>
                     </select>
                   </label>
                   <div class="checkout-summary">
@@ -106,7 +103,7 @@
                     <tr>
                       <th>No Order</th>
                       <th>Waktu</th>
-                      <th>Payment</th>
+                      <th>Pembayaran</th>
                       <th>Total</th>
                     </tr>
                   </thead>
@@ -116,6 +113,7 @@
             </article>
           </section>
 
+          <!-- ── Tab Inventori ── -->
           <section id="tab-inventory" class="tab-panel">
             <div class="kpi-grid">
               <article class="kpi-card">
@@ -123,7 +121,7 @@
                 <h3 id="inventoryCount">0</h3>
               </article>
               <article class="kpi-card warning">
-                <p>Produk Low Stock</p>
+                <p>Produk Stok Menipis</p>
                 <h3 id="lowStockCount">0</h3>
               </article>
             </div>
@@ -147,7 +145,7 @@
 
               <article class="panel-card">
                 <div class="card-head">
-                  <h2>Adjust Stok</h2>
+                  <h2>Sesuaikan Stok</h2>
                 </div>
                 <form id="adjustForm" class="form-grid">
                   <label>
@@ -155,18 +153,18 @@
                     <select id="adjustProduct" required></select>
                   </label>
                   <label>
-                    Quantity Change
-                    <input id="adjustQty" type="number" required />
+                    Perubahan Qty
+                    <input id="adjustQty" type="number" required placeholder="+ restock, - koreksi" />
                   </label>
                   <label>
-                    Reason
+                    Alasan
                     <input id="adjustReason" placeholder="Restock dari supplier, dll" />
                   </label>
                   <label>
-                    Counterparty Account
-                    <input id="adjustAccount" placeholder="Cash / Hutang Dagang / Expense" />
+                    Akun Lawan
+                    <input id="adjustAccount" placeholder="Cash / Hutang Dagang" />
                   </label>
-                  <button class="btn btn-primary" type="submit">Kirim Adjustment</button>
+                  <button class="btn btn-primary" type="submit">Simpan Penyesuaian</button>
                 </form>
               </article>
             </div>
@@ -195,19 +193,19 @@
 
             <article class="panel-card">
               <div class="card-head">
-                <h2>Riwayat Movement Stok</h2>
+                <h2>Riwayat Pergerakan Stok</h2>
               </div>
               <div class="table-wrap">
                 <table>
                   <thead>
                     <tr>
                       <th>Waktu</th>
-                      <th>Produk ID</th>
+                      <th>Produk</th>
                       <th>Tipe</th>
                       <th>Perubahan</th>
                       <th>Sebelum</th>
                       <th>Sesudah</th>
-                      <th>Reason</th>
+                      <th>Alasan</th>
                     </tr>
                   </thead>
                   <tbody id="movementTableBody"></tbody>
@@ -216,7 +214,23 @@
             </article>
           </section>
 
+          <!-- ── Tab Pembukuan ── -->
           <section id="tab-bookkeeping" class="tab-panel">
+            <div class="filter-bar">
+              <form id="bookkeepingFilterForm" class="filter-form">
+                <label>
+                  Dari
+                  <input type="date" id="bkStartDate" />
+                </label>
+                <label>
+                  Sampai
+                  <input type="date" id="bkEndDate" />
+                </label>
+                <button type="submit" class="btn btn-secondary">Terapkan</button>
+                <button type="button" id="bkResetBtn" class="btn btn-ghost">Reset</button>
+              </form>
+            </div>
+
             <div class="panel-grid">
               <article class="panel-card">
                 <div class="card-head">
@@ -226,10 +240,10 @@
                   <table>
                     <thead>
                       <tr>
-                        <th>Account</th>
+                        <th>Akun</th>
                         <th>Debit</th>
-                        <th>Credit</th>
-                        <th>Balance</th>
+                        <th>Kredit</th>
+                        <th>Saldo</th>
                       </tr>
                     </thead>
                     <tbody id="trialBalanceBody"></tbody>
@@ -239,7 +253,7 @@
 
               <article class="panel-card">
                 <div class="card-head">
-                  <h2>Ledger</h2>
+                  <h2>Jurnal Ledger</h2>
                 </div>
                 <div class="table-wrap">
                   <table>
@@ -247,10 +261,10 @@
                       <tr>
                         <th>Tanggal</th>
                         <th>Ref</th>
-                        <th>Account</th>
+                        <th>Akun</th>
                         <th>Dr/Cr</th>
-                        <th>Amount</th>
-                        <th>Note</th>
+                        <th>Nominal</th>
+                        <th>Keterangan</th>
                       </tr>
                     </thead>
                     <tbody id="ledgerBody"></tbody>
@@ -260,7 +274,23 @@
             </div>
           </section>
 
+          <!-- ── Tab Analitik ── -->
           <section id="tab-analytics" class="tab-panel">
+            <div class="filter-bar">
+              <form id="analyticsFilterForm" class="filter-form">
+                <label>
+                  Dari
+                  <input type="date" id="anStartDate" />
+                </label>
+                <label>
+                  Sampai
+                  <input type="date" id="anEndDate" />
+                </label>
+                <button type="submit" class="btn btn-secondary">Terapkan</button>
+                <button type="button" id="anResetBtn" class="btn btn-ghost">Reset</button>
+              </form>
+            </div>
+
             <div class="kpi-grid analytics-kpi">
               <article class="kpi-card">
                 <p>Total Revenue</p>
@@ -271,33 +301,33 @@
                 <h3 id="kpiProfit">Rp0</h3>
               </article>
               <article class="kpi-card">
-                <p>Order Count</p>
+                <p>Jumlah Order</p>
                 <h3 id="kpiOrderCount">0</h3>
               </article>
               <article class="kpi-card">
-                <p>Avg Order Value</p>
+                <p>Rata-rata Order</p>
                 <h3 id="kpiAov">Rp0</h3>
               </article>
               <article class="kpi-card">
-                <p>Inventory Cost Value</p>
+                <p>Nilai Inventori (Modal)</p>
                 <h3 id="kpiInventoryCost">Rp0</h3>
               </article>
               <article class="kpi-card">
-                <p>Potential Margin</p>
+                <p>Potensi Margin</p>
                 <h3 id="kpiPotentialMargin">Rp0</h3>
               </article>
             </div>
 
             <article class="panel-card">
               <div class="card-head">
-                <h2>Top Produk</h2>
+                <h2>Produk Terlaris</h2>
               </div>
               <div class="table-wrap">
                 <table>
                   <thead>
                     <tr>
                       <th>Produk</th>
-                      <th>Qty Sold</th>
+                      <th>Qty Terjual</th>
                       <th>Revenue</th>
                     </tr>
                   </thead>
@@ -306,6 +336,7 @@
               </div>
             </article>
           </section>
+
         </main>
       </section>
     </div>
