@@ -1,0 +1,46 @@
+services:
+  moonpos-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: moonpos-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      MOONPOS_DB_URL: postgresql+psycopg://moonpos:moonpos@moonpos-db:5432/moonpos
+      MOONPOS_CORS_ORIGINS: "*"
+    depends_on:
+      moonpos-db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+    networks:
+      - moonpos-net
+
+  moonpos-db:
+    image: postgres:16-alpine
+    container_name: moonpos-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moonpos
+      POSTGRES_PASSWORD: moonpos
+      POSTGRES_DB: moonpos
+    volumes:
+      - moonpos-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moonpos -d moonpos"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - moonpos-net
+
+volumes:
+  moonpos-db-data:
+
+networks:
+  moonpos-net:

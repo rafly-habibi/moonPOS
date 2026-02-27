@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>moonPOS Dashboard</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="bg-layer"></div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <p class="brand-kicker">Enterprise Retail Suite</p>
+          <h1>moonPOS</h1>
+          <p class="brand-subtitle">Operational Command Center</p>
+        </div>
+
+        <nav class="tab-nav">
+          <button class="tab-btn is-active" data-tab="checkout" type="button">Checkout Ops</button>
+          <button class="tab-btn" data-tab="inventory" type="button">Inventory Control</button>
+          <button class="tab-btn" data-tab="bookkeeping" type="button">Bookkeeping</button>
+          <button class="tab-btn" data-tab="analytics" type="button">Business Analytics</button>
+        </nav>
+
+        <div class="sidebar-foot">
+          <span id="syncStatus" class="status-pill">Belum sinkron</span>
+          <button id="refreshAllBtn" class="btn btn-secondary" type="button">Sync Data</button>
+        </div>
+      </aside>
+
+      <section class="workspace">
+        <header class="topbar">
+          <div>
+            <p class="topbar-kicker">Live Workspace</p>
+            <h2>Dashboard Operasional</h2>
+          </div>
+          <a class="link-btn" href="/docs" target="_blank" rel="noreferrer">Open API Docs</a>
+        </header>
+
+        <main class="layout">
+          <section id="tab-checkout" class="tab-panel is-active">
+            <div class="panel-grid panel-grid-checkout">
+              <article class="panel-card">
+                <div class="card-head">
+                  <h2>Catalog Produk</h2>
+                  <input id="productSearch" type="search" placeholder="Cari produk..." />
+                </div>
+                <div id="productCatalog" class="catalog-list"></div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-head">
+                  <h2>Keranjang</h2>
+                  <button id="clearCartBtn" class="btn btn-ghost" type="button">Kosongkan</button>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Produk</th>
+                        <th>Qty</th>
+                        <th>Subtotal</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody id="cartTableBody"></tbody>
+                  </table>
+                </div>
+
+                <form id="checkoutForm" class="form-grid">
+                  <label>
+                    Discount
+                    <input id="discountInput" type="number" min="0" value="0" />
+                  </label>
+                  <label>
+                    Pajak
+                    <input id="taxInput" type="number" min="0" value="0" />
+                  </label>
+                  <label>
+                    Payment
+                    <select id="paymentMethodInput">
+                      <option value="cash">Cash</option>
+                      <option value="transfer">Transfer</option>
+                      <option value="qris">QRIS</option>
+                      <option value="credit">Credit</option>
+                    </select>
+                  </label>
+                  <div class="checkout-summary">
+                    <p>Total: <strong id="cartTotalValue">Rp0</strong></p>
+                  </div>
+                  <button class="btn btn-primary" type="submit">Proses Checkout</button>
+                </form>
+
+                <div id="checkoutResult" class="result-box hidden"></div>
+              </article>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-head">
+                <h2>Order Terbaru</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>No Order</th>
+                      <th>Waktu</th>
+                      <th>Payment</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="recentOrdersBody"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section id="tab-inventory" class="tab-panel">
+            <div class="kpi-grid">
+              <article class="kpi-card">
+                <p>Jumlah Produk Aktif</p>
+                <h3 id="inventoryCount">0</h3>
+              </article>
+              <article class="kpi-card warning">
+                <p>Produk Low Stock</p>
+                <h3 id="lowStockCount">0</h3>
+              </article>
+            </div>
+
+            <div class="panel-grid">
+              <article class="panel-card">
+                <div class="card-head">
+                  <h2>Tambah Produk</h2>
+                </div>
+                <form id="productForm" class="form-grid">
+                  <label>SKU <input name="sku" required /></label>
+                  <label>Nama Produk <input name="name" required /></label>
+                  <label>Kategori <input name="category" /></label>
+                  <label>Harga Jual <input name="sell_price" type="number" min="1" required /></label>
+                  <label>Harga Modal <input name="cost_price" type="number" min="0" required /></label>
+                  <label>Stok Awal <input name="stock_qty" type="number" min="0" value="0" required /></label>
+                  <label>Min Stok <input name="min_stock" type="number" min="0" value="5" required /></label>
+                  <button class="btn btn-primary" type="submit">Simpan Produk</button>
+                </form>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-head">
+                  <h2>Adjust Stok</h2>
+                </div>
+                <form id="adjustForm" class="form-grid">
+                  <label>
+                    Produk
+                    <select id="adjustProduct" required></select>
+                  </label>
+                  <label>
+                    Quantity Change
+                    <input id="adjustQty" type="number" required />
+                  </label>
+                  <label>
+                    Reason
+                    <input id="adjustReason" placeholder="Restock dari supplier, dll" />
+                  </label>
+                  <label>
+                    Counterparty Account
+                    <input id="adjustAccount" placeholder="Cash / Hutang Dagang / Expense" />
+                  </label>
+                  <button class="btn btn-primary" type="submit">Kirim Adjustment</button>
+                </form>
+              </article>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-head">
+                <h2>Daftar Produk</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>SKU</th>
+                      <th>Nama</th>
+                      <th>Kategori</th>
+                      <th>Harga Jual</th>
+                      <th>Stok</th>
+                      <th>Min</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="inventoryTableBody"></tbody>
+                </table>
+              </div>
+            </article>
+
+            <article class="panel-card">
+              <div class="card-head">
+                <h2>Riwayat Movement Stok</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Waktu</th>
+                      <th>Produk ID</th>
+                      <th>Tipe</th>
+                      <th>Perubahan</th>
+                      <th>Sebelum</th>
+                      <th>Sesudah</th>
+                      <th>Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody id="movementTableBody"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+
+          <section id="tab-bookkeeping" class="tab-panel">
+            <div class="panel-grid">
+              <article class="panel-card">
+                <div class="card-head">
+                  <h2>Trial Balance</h2>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Account</th>
+                        <th>Debit</th>
+                        <th>Credit</th>
+                        <th>Balance</th>
+                      </tr>
+                    </thead>
+                    <tbody id="trialBalanceBody"></tbody>
+                  </table>
+                </div>
+              </article>
+
+              <article class="panel-card">
+                <div class="card-head">
+                  <h2>Ledger</h2>
+                </div>
+                <div class="table-wrap">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Tanggal</th>
+                        <th>Ref</th>
+                        <th>Account</th>
+                        <th>Dr/Cr</th>
+                        <th>Amount</th>
+                        <th>Note</th>
+                      </tr>
+                    </thead>
+                    <tbody id="ledgerBody"></tbody>
+                  </table>
+                </div>
+              </article>
+            </div>
+          </section>
+
+          <section id="tab-analytics" class="tab-panel">
+            <div class="kpi-grid analytics-kpi">
+              <article class="kpi-card">
+                <p>Total Revenue</p>
+                <h3 id="kpiRevenue">Rp0</h3>
+              </article>
+              <article class="kpi-card">
+                <p>Gross Profit</p>
+                <h3 id="kpiProfit">Rp0</h3>
+              </article>
+              <article class="kpi-card">
+                <p>Order Count</p>
+                <h3 id="kpiOrderCount">0</h3>
+              </article>
+              <article class="kpi-card">
+                <p>Avg Order Value</p>
+                <h3 id="kpiAov">Rp0</h3>
+              </article>
+              <article class="kpi-card">
+                <p>Inventory Cost Value</p>
+                <h3 id="kpiInventoryCost">Rp0</h3>
+              </article>
+              <article class="kpi-card">
+                <p>Potential Margin</p>
+                <h3 id="kpiPotentialMargin">Rp0</h3>
+              </article>
+            </div>
+
+            <article class="panel-card">
+              <div class="card-head">
+                <h2>Top Produk</h2>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Produk</th>
+                      <th>Qty Sold</th>
+                      <th>Revenue</th>
+                    </tr>
+                  </thead>
+                  <tbody id="topProductsBody"></tbody>
+                </table>
+              </div>
+            </article>
+          </section>
+        </main>
+      </section>
+    </div>
+
+    <div id="toast" class="toast hidden"></div>
+    <script src="/static/app.js" defer></script>
+  </body>
+</html>
